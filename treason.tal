@@ -1,0 +1,109 @@
+( treason.tal - uxntal audio playback thing ) 
+
+~lib/varvara.tal
+
+( main )
+|0100
+    ( set system colors )
+    #0a2f .System/r DEO2
+    #3d8b .System/g DEO2
+    #8fc5 .System/b DEO2
+
+    ( file transfer setup )
+    ;filename .File0/name DEO2
+    #2000 .File0/length DEO2
+    #01 .File0/append DEO
+
+    ( audio player setup )
+    ;audio-buffer .Audio0/addr DEO2
+    ( #2000 .Audio0/length DEO2 )
+    #ff .Audio0/volume DEO
+    #0000 .Audio0/adsr DEO2
+    ;on-audio-finished .Audio0/vector DEO2
+    
+    ( viz setup )
+    ;clearscreen-on-init JSR2
+    ;audio-buffer .Screen/addr DEO2
+    ;on-frame .Screen/vector DEO2
+( fallthrough )
+
+@on-audio-finished ( -> )
+    ( copy down the file )
+    ;audio-buffer .File0/read DEO2
+    ( debug print
+    .File0/success DEI2 SWP
+    LIT '0 ADD .Console/write DEO
+    LIT '0 ADD .Console/write DEO
+    #0a .Console/write DEO
+    )
+    ( stop at end or missing )
+    .File0/success DEI2 ORAk ,&has-sample JCN
+        POP2
+        #01 .System/state DEO ( EXIT )
+        BRK
+    &has-sample
+    ( update in case of partial buffer )
+    .Audio0/length DEO2
+    ( play the file )
+    #bc .Audio0/pitch DEO
+BRK
+
+@on-frame ( -> )
+    ;clearscreen JSR2
+    
+    ( actually draw the viz )
+    #11 .Screen/auto DEO
+    #0000 .Screen/x DEO2
+    .Screen/width DEI2
+    &for0
+        ( calculate buffer offset )
+        DUP2 ;audio-buffer ADD2 .Audio0/position DEI2 ADD2
+        #2000 .Screen/width DEI2 SUB2 LTH2k ,&no-clamp JCN
+            SWP2
+        &no-clamp
+        POP2
+        
+        ( load and plot sample )
+        LDA #00 SWP .Screen/y DEO2
+        #01 .Screen/pixel DEO
+        #0001 SUB2
+    ORAk ,&for0 JCN POP2
+BRK
+
+(
+@|import )
+
+(
+  Clear the entire screen.
+  @src https://llllllll.co/t/uxn-virtual-computer/46103/384
+)
+@clearscreen ( -- )
+    #71 .Screen/auto DEO
+    #0000 .Screen/y DEO2
+    [ LIT &height $1 ] #00
+    &h
+        #0000 .Screen/x DEO2
+        [ LIT &width $1 ] #00
+        &w
+            #00 .Screen/sprite DEO
+            INC GTHk ,&w JCN
+        POP2
+        .Screen/y DEI2k #0040 ADD2 ROT DEO2
+        INC GTHk ,&h JCN
+    POP2
+JMP2r
+
+(
+  Call this function on startup to correctly initialize the clearscreen function.
+  @src https://llllllll.co/t/uxn-virtual-computer/46103/384
+)
+@clearscreen-on-init ( -- )
+    .Screen/height DEI2 #06 SFT2 NIP INC ;clearscreen/height STA
+    .Screen/width DEI2 #03 SFT2 NIP ;clearscreen/width STA
+JMP2r
+
+(
+@|data )
+
+@filename "sticks.u8m.pcm
+@audio-buffer $3000
