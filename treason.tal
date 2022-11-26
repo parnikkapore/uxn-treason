@@ -2,6 +2,8 @@
 
 ~lib/varvara.tal
 
+%audio_buffer_length { #2000 }
+
 ( main )
 |0100
     ( set system colors )
@@ -11,12 +13,12 @@
 
     ( file transfer setup )
     ;filename .File0/name DEO2
-    #2000 .File0/length DEO2
+    audio_buffer_length .File0/length DEO2
     #01 .File0/append DEO
 
     ( audio player setup )
     ;audio-buffer .Audio0/addr DEO2
-    ( #2000 .Audio0/length DEO2 )
+    ( audio_buffer_length .Audio0/length DEO2 )
     #ff .Audio0/volume DEO
     #0000 .Audio0/adsr DEO2
     ;on-audio-finished .Audio0/vector DEO2
@@ -54,20 +56,21 @@ BRK
     ( actually draw the viz )
     #11 .Screen/auto DEO
     #0000 .Screen/x DEO2
+    ( calculate buffer offset )
+    ;audio-buffer .Audio0/position DEI2 ADD2
+    audio_buffer_length .Screen/width DEI2 SUB2 LTH2k ,&no-clamp JCN
+        SWP2
+    &no-clamp
+    POP2
     .Screen/width DEI2
     &for0
-        ( calculate buffer offset )
-        DUP2 ;audio-buffer ADD2 .Audio0/position DEI2 ADD2
-        #2000 .Screen/width DEI2 SUB2 LTH2k ,&no-clamp JCN
-            SWP2
-        &no-clamp
-        POP2
-        
+        ADD2k
         ( load and plot sample )
         LDA #00 SWP .Screen/y DEO2
         #01 .Screen/pixel DEO
         #0001 SUB2
     ORAk ,&for0 JCN POP2
+    POP2
 BRK
 
 (
@@ -106,4 +109,4 @@ JMP2r
 @|data )
 
 @filename "sticks.u8m.pcm
-@audio-buffer $3000
+@audio-buffer $2000
