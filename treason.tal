@@ -108,5 +108,5 @@ JMP2r
 (
 @|data )
 
-@filename "sticks.u8m.pcm
+@filename "sticks.u8m.pcm 00
 @audio-buffer $2000
