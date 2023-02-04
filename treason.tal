@@ -1,8 +1,11 @@
-( treason.tal - uxntal audio playback thing ) 
+( treason.tal - uxntal audio playback thing )
 
 ~lib/varvara.tal
 
-%audio_buffer_length { #2000 }
+%audio_frame_length { #0300 }
+%audio_buffer_length { audio_frame_length #0004 MUL2 }
+|0000
+@curbuf $1
 
 ( main )
 |0100
@@ -13,47 +16,55 @@
 
     ( file transfer setup )
     ;filename .File0/name DEO2
-    audio_buffer_length .File0/length DEO2
+    audio_frame_length .File0/length DEO2
     #01 .File0/append DEO
 
     ( audio player setup )
     ;audio-buffer .Audio0/addr DEO2
-    ( audio_buffer_length .Audio0/length DEO2 )
+    audio_buffer_length .Audio0/length DEO2
     #ff .Audio0/volume DEO
     #0000 .Audio0/adsr DEO2
-    ;on-audio-finished .Audio0/vector DEO2
-    
-    ( viz setup )
-    ;clearscreen-on-init JSR2
-    ;audio-buffer .Screen/addr DEO2
-    ;on-frame .Screen/vector DEO2
-( fallthrough )
 
-@on-audio-finished ( -> )
-    ( copy down the file )
+    ( and now the screen vector )
+    ;on-display .Screen/vector DEO2
+    ;clearscreen-on-init JSR2
+
+    ( copy down the first two packets )
     ;audio-buffer .File0/read DEO2
-    ( debug print
-    .File0/success DEI2 SWP
-    LIT '0 ADD .Console/write DEO
-    LIT '0 ADD .Console/write DEO
-    #0a .Console/write DEO
-    )
+    #01 .curbuf STZ
+
+    ( play the file )
+    #3c .Audio0/pitch DEO
+BRK
+
+@on-display ( -> )
+    .Audio0/position DEI2 audio_frame_length DIV2 NIP #02 ADD #03 AND
+
+    ( check which frame we're doing )
+    .curbuf LDZ
+    &start-buffer-loop
+    EQUk ,&done-buffering JCN
+        ( get audio buffer location )
+        DUP #00 SWP audio_frame_length MUL2 ;audio-buffer ADD2
+
+        ( copy down the file )
+        .File0/read DEO2
+
+        INC #03 AND
+        ,&start-buffer-loop JMP
+    &done-buffering
+    .curbuf STZ POP
+
     ( stop at end or missing )
-    .File0/success DEI2 ORAk ,&has-sample JCN
-        POP2
+    .File0/success DEI2 ORA ,&has-sample JCN
         #01 .System/state DEO ( EXIT )
         BRK
     &has-sample
-    ( update in case of partial buffer )
-    .Audio0/length DEO2
-    ( play the file )
-    #bc .Audio0/pitch DEO
-BRK
 
-@on-frame ( -> )
     ;clearscreen JSR2
-    
+
     ( actually draw the viz )
+
     #11 .Screen/auto DEO
     #0000 .Screen/x DEO2
     ( calculate buffer offset )
@@ -109,4 +120,4 @@ JMP2r
 @|data )
 
 @filename "sticks.u8m.pcm 00
-@audio-buffer $2000
+@audio-buffer $0c00
